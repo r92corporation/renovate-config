@@ -1,0 +1,195 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "R92 dependency policy (skill r92-dependencies; plan PLAN-r92-architecture-migration 0.9, R92-10): latest stable at least 3 days old, security fixes at once, exact pins, images by digest, Actions by SHA. Renovate PRs are ordinary changes (skill r92-assurance): never automerged. Security fixes take the newest safe release (vulnerabilityFixStrategy highest), with no release age.",
+  "extends": [
+    "config:recommended",
+    ":semanticCommits",
+    "docker:pinDigests",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "timezone": "UTC",
+  "rangeStrategy": "pin",
+  "ignoreUnstable": true,
+  "respectLatest": true,
+  "minimumReleaseAge": "3 days",
+  "minimumReleaseAgeBehaviour": "timestamp-required",
+  "internalChecksFilter": "strict",
+  "abandonmentThreshold": "18 months",
+  "automerge": false,
+  "platformAutomerge": false,
+  "prHourlyLimit": 0,
+  "prConcurrentLimit": 15,
+  "labels": [
+    "dependencies"
+  ],
+  "dependencyDashboard": true,
+  "dependencyDashboardTitle": "Dependency dashboard (Renovate, R92-10)",
+  "dependencyDashboardOSVVulnerabilitySummary": "all",
+  "osvVulnerabilityAlerts": true,
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "minimumReleaseAge": "0 days",
+    "schedule": [
+      "at any time"
+    ],
+    "prCreation": "immediate",
+    "labels": [
+      "dependencies",
+      "security"
+    ],
+    "vulnerabilityFixStrategy": "highest"
+  },
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": [
+      "* * * * 1"
+    ]
+  },
+  "postUpdateOptions": [
+    "gomodTidy"
+  ],
+  "packageRules": [
+    {
+      "description": "Theme tarballs are bumped by theme releases (skill r92-theme), never by Renovate.",
+      "matchPackageNames": [
+        "@r92corporation/theme",
+        "@r92corporation/theme-mcp"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Node: Active and Maintenance LTS only (node versioning treats non-LTS majors as unstable).",
+      "matchDepNames": [
+        "node"
+      ],
+      "versioning": "node"
+    },
+    {
+      "description": "engines, peerDependencies and requires-python state what consumers may use: keep their ranges (an exact peer stays exact), never pin them.",
+      "matchDepTypes": [
+        "engines",
+        "peerDependencies",
+        "requires-python"
+      ],
+      "rangeStrategy": "replace"
+    },
+    {
+      "description": "Container tags: Docker Hub returns no timestamp for many tags of large repositories (node, golang), so a required timestamp would hold those updates back forever; unstamped tags are not age-gated and the reviewer checks the upstream release date.",
+      "matchDatasources": [
+        "docker"
+      ],
+      "minimumReleaseAgeBehaviour": "timestamp-optional"
+    },
+    {
+      "description": "Minor and patch grouped per ecosystem: npm.",
+      "matchCategories": [
+        "js"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "groupName": "npm minor and patch",
+      "groupSlug": "npm-minor-patch"
+    },
+    {
+      "description": "Minor and patch grouped per ecosystem: Go modules.",
+      "matchCategories": [
+        "golang"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "groupName": "Go minor and patch",
+      "groupSlug": "go-minor-patch"
+    },
+    {
+      "description": "Minor and patch grouped per ecosystem: Python.",
+      "matchCategories": [
+        "python"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "groupName": "Python minor and patch",
+      "groupSlug": "python-minor-patch"
+    },
+    {
+      "description": "Minor and patch grouped per ecosystem: Cargo.",
+      "matchCategories": [
+        "rust"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "groupName": "Cargo minor and patch",
+      "groupSlug": "cargo-minor-patch"
+    },
+    {
+      "description": "Minor, patch and digest grouped per ecosystem: container images.",
+      "matchCategories": [
+        "docker"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest"
+      ],
+      "groupName": "container images minor, patch and digest",
+      "groupSlug": "docker-minor-patch"
+    },
+    {
+      "description": "Minor, patch and digest grouped per ecosystem: GitHub Actions.",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest"
+      ],
+      "groupName": "GitHub Actions minor, patch and digest",
+      "groupSlug": "github-actions-minor-patch"
+    },
+    {
+      "description": "Workers compatibility_date: one PR in the first week of each month keeps it under 180 days old.",
+      "matchDatasources": [
+        "custom.workerd-compatibility-date"
+      ],
+      "versioning": "regex:^(?<major>\\d{4})-(?<minor>\\d{2})-(?<patch>\\d{2})$",
+      "groupName": "Workers compatibility_date",
+      "groupSlug": "workers-compatibility-date",
+      "schedule": [
+        "* * 1-7 * *"
+      ]
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Cloudflare Workers compatibility_date in wrangler.toml / wrangler.json / wrangler.jsonc.",
+      "managerFilePatterns": [
+        "/(^|/)wrangler\\.(toml|json|jsonc)$/"
+      ],
+      "matchStrings": [
+        "\"?compatibility_date\"?\\s*[:=]\\s*\"(?<currentValue>\\d{4}-\\d{2}-\\d{2})\""
+      ],
+      "depNameTemplate": "workers-compatibility-date",
+      "datasourceTemplate": "custom.workerd-compatibility-date"
+    }
+  ],
+  "customDatasources": {
+    "workerd-compatibility-date": {
+      "description": "Compatibility dates that a released workerd supports: workerd 1.YYYYMMDD.n on npm.",
+      "defaultRegistryUrlTemplate": "https://registry.npmjs.org/workerd",
+      "format": "json",
+      "transformTemplates": [
+        "{\"releases\": $distinct($map($filter($keys(versions), function($v) { $match($v, /^1\\.[0-9]{8}\\.[0-9]+$/) }), function($v) { ( $d := $split($v, \".\")[1]; { \"version\": $substring($d, 0, 4) & \"-\" & $substring($d, 4, 2) & \"-\" & $substring($d, 6, 2), \"releaseTimestamp\": $lookup($$.time, $v) } ) }))}"
+      ]
+    }
+  },
+  "prFooter": "### R92 dependency evidence (skill r92-dependencies)\n\n| Package | From | To | Reason |\n|---|---|---|---|\n{{#each upgrades}}| `{{{depName}}}` ({{{datasource}}}) | {{#if displayFrom}}{{{displayFrom}}}{{else}}{{{currentValue}}}{{/if}} | {{#if displayTo}}{{{displayTo}}}{{else}}{{{newValue}}}{{/if}} | {{#if isVulnerabilityAlert}}security fix{{#if vulnerabilitySeverity}} ({{{vulnerabilitySeverity}}}){{/if}}: release age waived{{else if (equals updateType 'lockFileMaintenance')}}weekly lockfile maintenance: newest stable versions within the pinned ranges{{else if (equals updateType 'pin')}}pin to the exact version in use{{else if (equals updateType 'pinDigest')}}pin by digest{{else if (equals updateType 'digest')}}newer digest of the same tag{{else}}latest stable release at least 3 days old ({{{updateType}}}){{/if}} |\n{{/each}}\n\n**Scan.** Renovate checked the versions in use against OSV.dev (`osvVulnerabilityAlerts`); it does not scan the target. Before merging, the target and what it pulls in must show no Critical or High: this repo's verify step (`npm audit --omit=dev --audit-level=high`, `govulncheck ./...`, `uv export | check-package.sh pypi -`, Trivy for images) or `/usr/share/agent-skills/r92-dependencies/scripts/check-package.sh <ecosystem> <name> <version>`. The reviewer records the result in a PR comment. A Critical or High blocks the merge: take the newest safe stable release instead (upgrade or downgrade), or record an R92 Projects risk the owner approves.\n\n**Change.** An ordinary change (skill r92-assurance): reviewed by someone who is not the author, CI green, merged by a person, never automerged; production only through the change gate.\n\nControls: SI-2, RA-5, CM-3, CC7.1, CC8.1, A.8.8"
+}
